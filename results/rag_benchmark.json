@@ -1,0 +1,23 @@
+{
+  "baseline": {
+    "setup": "Baseline (no cache)",
+    "avg_embed_ms": 52.64,
+    "avg_retrieve_ms": 11.45,
+    "avg_total_ms": 64.09,
+    "throughput_qps": 15.602,
+    "peak_memory_mb": 618.8,
+    "cache_hit_rate_pct": 0.0
+  },
+  "cached": {
+    "setup": "Cached (MD5 exact-match cache)",
+    "avg_embed_ms": 30.13,
+    "avg_retrieve_ms": 5.43,
+    "avg_total_ms": 35.56,
+    "throughput_qps": 28.123,
+    "peak_memory_mb": 619.0,
+    "cache_hit_rate_pct": 30.0
+  },
+  "num_queries": 20,
+  "embed_model": "all-MiniLM-L6-v2",
+  "top_k": 3
+}
