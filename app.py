@@ -19,8 +19,10 @@ Test:
        -d '{"query": "How do I reset my password?"}'
 """
 import hashlib
+import json
 import os
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import chromadb
@@ -34,6 +36,30 @@ CHROMA_DIR = os.getenv("CHROMA_DIR", str(Path(__file__).parent / "chroma_db"))
 COLLECTION_NAME = os.getenv("COLLECTION_NAME", "customer_support_faq")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "all-MiniLM-L6-v2")
 TOP_K = int(os.getenv("TOP_K", "3"))
+
+# ── Structured logging ───────────────────────────────────────────────────────
+_LOG_DIR = Path(__file__).parent / "logs"
+_LOG_DIR.mkdir(exist_ok=True)
+_LOG_FILE = _LOG_DIR / "rag.jsonl"
+
+
+def _log_query(query: str, latency_ms: float, n_results: int,
+               cache_hit: bool, error: str = None) -> None:
+    """Append one JSON line to logs/rag.jsonl."""
+    entry = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "service": "rag",
+        "event": "query",
+        "latency_ms": round(latency_ms, 2),
+        "query_length": len(query),
+        "n_results": n_results,
+        "cache_hit": cache_hit,
+        "status": "error" if error else "ok",
+        "error": error,
+        "estimated_cost_usd": round(len(query) / 4 / 1000 * 0.0001, 8),
+    }
+    with open(_LOG_FILE, "a", encoding="utf-8") as _f:
+        _f.write(json.dumps(entry) + "\n")
 
 # ── App State ─────────────────────────────────────────────────────────────────
 app = FastAPI(title="RAG Customer Support API")
@@ -105,6 +131,7 @@ def query(req: QueryRequest):
     if cache_key in state["cache"]:
         state["cache_hits"] += 1
         latency_ms = (time.perf_counter() - t_start) * 1000
+        _log_query(req.query, latency_ms, len(state["cache"][cache_key]), cache_hit=True)
         return QueryResponse(
             query=req.query,
             results=state["cache"][cache_key],
@@ -134,6 +161,7 @@ def query(req: QueryRequest):
 
     state["cache"][cache_key] = results
     latency_ms = (time.perf_counter() - t_start) * 1000
+    _log_query(req.query, latency_ms, len(results), cache_hit=False)
 
     return QueryResponse(
         query=req.query,

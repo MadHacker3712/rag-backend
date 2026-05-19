@@ -4,15 +4,36 @@ Fine-tuning retrieval speed for a production customer support system.
 
 ## What is RAG?
 
-**Retrieval-Augmented Generation** — instead of relying only on the LLM's training data, you search a knowledge base first:
+**Retrieval-Augmented Generation** — instead of relying only on the LLM's training data, you search a knowledge base first. This lets you answer questions about *your* products without retraining the model.
+
+## Architecture
 
 ```
-User Query → Embed Query → Vector Search (ChromaDB) → Top-K Docs → Return Answer
-                                       ↑
-                              Query Cache (optimization)
+User Query
+    │
+    ▼
+FastAPI /query (app.py)
+    │
+    ├──[MD5 cache HIT]──► Return cached results (~12ms)
+    │
+    └──[MISS]
+         │
+         ▼
+    SentenceTransformer encode()
+    (all-MiniLM-L6-v2 → 384-dim vector)
+         │
+         ▼
+    ChromaDB HNSW index query
+    (cosine similarity, top-K nearest docs)
+         │
+         ▼
+    Store in cache (MD5 key → results)
+         │
+         ▼
+    Return JSON results + latency_ms + cache_hit
+         │
+         └── Append to logs/rag.jsonl
 ```
-
-This lets you answer questions about *your* products without retraining the model.
 
 ---
 
